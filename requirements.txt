@@ -46,7 +46,7 @@ smmap==5.0.2
 streamlit==1.44.1
 sympy==1.13.1
 tenacity==9.1.2
-tensorflow>=2.15.0
+tensorflow==2.15.0
 threadpoolctl==3.6.0
 toml==0.10.2
 torch==2.6.0
@@ -64,3 +64,4 @@ PyPDF2==3.0.1
 docx2txt==0.8
 unstructured==0.12.4
 huggingface-hub==0.21.4
+pypdf==3.15.0
