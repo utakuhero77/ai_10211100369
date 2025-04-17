@@ -2,573 +2,382 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import seaborn as sns
-import base64
-import os
-import streamlit as st
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import seaborn as sns
-import base64
-import os
-import sys
-import io
-# Set page cfrom sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
-import plotly.express as px
+from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-st.set_page_config(
-    page_title="ML & AI Explorer",
-    page_icon="🧠",
-    layout="wide"
-)
+import tensorflow as tf
+from tf_keras.models import Sequential
+from tf_keras.layers import Dense
+from tf_keras.utils import to_categorical
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, r2_score
+import os
+import requests
+from dotenv import load_dotenv
+from sentence_transformers import SentenceTransformer
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
+import pypdf
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-# Main title
-st.title("Machine Learning & AI Explorer")
-st.markdown("Explore various machine learning and AI techniques with interactive interfaces")
 
-# Sidebar for navigation
+st.set_page_config(page_title="ML & AI Explorer", layout="wide")
 st.sidebar.title("Navigation")
-app_mode = st.sidebar.selectbox(
-    "Choose a section",
-    ["Home", "Regression", "Clustering", "Neural Networks", "Large Language Models"]
-)
+app_mode = st.sidebar.radio("Choose a task:", [
+    "Regression",
+    "Clustering",
+    "Neural Network",
+    "Large Language Model (LLM)"
+])
 
-# Home section
-if app_mode == "Home":
-    st.header("Welcome to ML & AI Explorer")
-    st.markdown("""
-    This application allows you to explore different machine learning and AI techniques:
-    
-    - **Regression**: Predict continuous values based on input features
-    - **Clustering**: Group similar data points together
-    - **Neural Networks**: Build and train neural networks for various tasks
-    - **Large Language Models**: Interact with pre-trained language models
-    
-    Select a section from the sidebar to get started.
-    """)
-    
-    st.image("https://via.placeholder.com/800x400.png?text=ML+%26+AI+Explorer", caption="Machine Learning & AI Explorer")
+st.title("Machine Learning & AI Exploration App")
 
-# Regression section
-elif app_mode == "Regression":
-    st.header("Regression Analysis")
-    st.markdown("""
-    Regression analysis helps predict continuous values based on input features.
-    Upload your dataset to get started.
-    """)
-    
-    # File uploader
-    uploaded_file = st.file_uploader("Upload your dataset (CSV)", type=["csv"])
-    
-    if uploaded_file is not None:
-        # Load data
-        try:
-            df = pd.read_csv(uploaded_file)
-            st.success("Dataset successfully loaded!")
-            
-            # Data preview
-            st.subheader("Dataset Preview")
-            st.dataframe(df.head())
-            
-            # Data info
-            st.subheader("Dataset Information")
-            buffer = pd.DataFrame({
-                'Column': df.columns,
-                'Type': df.dtypes,
-                'Non-Null Count': df.count(),
-                'Null Count': df.isna().sum()
-            })
-            st.dataframe(buffer)
-            
-            # Data preprocessing options
-            st.subheader("Data Preprocessing")
-            
-            # Select target variable
-            target_col = st.selectbox("Select the target variable (dependent variable)", df.columns)
-            
-            # Select features
-            feature_cols = st.multiselect(
-                "Select the features (independent variables)",
-                [col for col in df.columns if col != target_col],
-                default=[col for col in df.columns if col != target_col][:3]  # Default to first 3 features
-            )
-            
-            # Handle missing values
-            handle_missing = st.checkbox("Handle missing values")
-            if handle_missing:
-                missing_strategy = st.radio(
-                    "Choose a strategy for handling missing values",
-                    ["Drop rows with missing values", "Fill with mean", "Fill with median", "Fill with zero"]
-                )
-                
-                if missing_strategy == "Drop rows with missing values":
-                    df = df.dropna(subset=feature_cols + [target_col])
-                elif missing_strategy == "Fill with mean":
-                    for col in feature_cols:
-                        if df[col].dtype in ['float64', 'int64']:
-                            df[col] = df[col].fillna(df[col].mean())
-                elif missing_strategy == "Fill with median":
-                    for col in feature_cols:
-                        if df[col].dtype in ['float64', 'int64']:
-                            df[col] = df[col].fillna(df[col].median())
-                elif missing_strategy == "Fill with zero":
-                    for col in feature_cols:
-                        df[col] = df[col].fillna(0)
-            
-            # Train model button
-            if st.button("Train Regression Model"):
-                if len(feature_cols) > 0:
-                    # Prepare data
-                    X = df[feature_cols]
-                    y = df[target_col]
-                    
-                    # Split data
-                    test_size = st.slider("Test set size", 0.1, 0.5, 0.2, 0.05)
-                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
-                    
-                    # Train model
-                    model = LinearRegression()
-                    model.fit(X_train, y_train)
-                    
-                    # Make predictions
-                    y_pred_train = model.predict(X_train)
-                    y_pred_test = model.predict(X_test)
-                    
-                    # Calculate metrics
-                    mae_train = mean_absolute_error(y_train, y_pred_train)
-                    mae_test = mean_absolute_error(y_test, y_pred_test)
-                    mse_train = mean_squared_error(y_train, y_pred_train)
-                    mse_test = mean_squared_error(y_test, y_pred_test)
-                    rmse_train = np.sqrt(mse_train)
-                    rmse_test = np.sqrt(mse_test)
-                    r2_train = r2_score(y_train, y_pred_train)
-                    r2_test = r2_score(y_test, y_pred_test)
-                    
-                    # Display coefficients
-                    st.subheader("Model Coefficients")
-                    coef_df = pd.DataFrame({
-                        'Feature': feature_cols,
-                        'Coefficient': model.coef_
-                    })
-                    st.dataframe(coef_df)
-                    st.write(f"Intercept: {model.intercept_:.4f}")
-                    
-                    # Display metrics
-                    st.subheader("Model Performance Metrics")
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.write("Training Set Metrics:")
-                        st.write(f"MAE: {mae_train:.4f}")
-                        st.write(f"MSE: {mse_train:.4f}")
-                        st.write(f"RMSE: {rmse_train:.4f}")
-                        st.write(f"R² Score: {r2_train:.4f}")
-                    
-                    with col2:
-                        st.write("Test Set Metrics:")
-                        st.write(f"MAE: {mae_test:.4f}")
-                        st.write(f"MSE: {mse_test:.4f}")
-                        st.write(f"RMSE: {rmse_test:.4f}")
-                        st.write(f"R² Score: {r2_test:.4f}")
-                    
-                    # Visualization - Predictions vs Actual
-                    st.subheader("Predictions vs Actual Values")
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    ax.scatter(y_test, y_pred_test, alpha=0.5)
-                    ax.plot([y.min(), y.max()], [y.min(), y.max()], 'r-', lw=2)
-                    ax.set_xlabel("Actual Values")
-                    ax.set_ylabel("Predicted Values")
-                    ax.set_title("Predictions vs Actual Values")
-                    st.pyplot(fig)
-                    
-                    # Visualization - Residuals
-                    st.subheader("Residuals Plot")
-                    residuals = y_test - y_pred_test
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    ax.scatter(y_pred_test, residuals, alpha=0.5)
-                    ax.hlines(y=0, xmin=y_pred_test.min(), xmax=y_pred_test.max(), colors='r', linestyles='--')
-                    ax.set_xlabel("Predicted Values")
-                    ax.set_ylabel("Residuals")
-                    ax.set_title("Residuals vs Predicted Values")
-                    st.pyplot(fig)
-                    
-                    # Distribution of residuals
-                    st.subheader("Distribution of Residuals")
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    sns.histplot(residuals, kde=True, ax=ax)
-                    ax.set_xlabel("Residuals")
-                    ax.set_title("Distribution of Residuals")
-                    st.pyplot(fig)
-                    
-                    # Custom prediction section
-                    st.subheader("Make Custom Predictions")
-                    st.write("Enter values for your features:")
-                    
-                    custom_inputs = {}
-                    for feature in feature_cols:
-                        # Check if the feature is numeric
-                        if df[feature].dtype in ['float64', 'int64']:
-                            min_val = float(df[feature].min())
-                            max_val = float(df[feature].max())
-                            mean_val = float(df[feature].mean())
-                            
-                            # Handle extremely large ranges
-                            if max_val - min_val > 1000:
-                                step = (max_val - min_val) / 100
-                            else:
-                                step = (max_val - min_val) / 20
-                            
-                            custom_inputs[feature] = st.slider(
-                                f"{feature}",
-                                min_val,
-                                max_val,
-                                mean_val,
-                                step
-                            )
-                        else:
-                            # For categorical features, offer a selectbox
-                            unique_values = df[feature].unique().tolist()
-                            custom_inputs[feature] = st.selectbox(f"{feature}", unique_values)
-                    
-                    # Make prediction
-                    if st.button("Predict"):
-                        # Prepare input data
-                        input_data = pd.DataFrame([custom_inputs])
-                        
-                        # Make prediction
-                        prediction = model.predict(input_data)[0]
-                        
-                        # Display prediction
-                        st.success(f"Predicted {target_col}: {prediction:.4f}")
-                else:
-                    st.error("Please select at least one feature for training.")
-        
-        except Exception as e:
-            st.error(f"Error loading or processing the dataset: {e}")
-
-# Add these imports at the top of your file
-
-
-# In your main code, replace the placeholder Clustering section with this:
-
-elif app_mode == "Clustering":
-    st.title("🔍 AI/ML Explorer: Clustering Analysis")
-    st.markdown("""
-    This module allows you to perform K-Means clustering on your dataset. 
-    Upload your data, select features, and explore the clusters.
-    """)
-    
-    # Initialize session state for clustering
-    if 'clustering_done' not in st.session_state:
-        st.session_state.clustering_done = False
-    
-    with st.sidebar:
-        st.header("📊 Clustering Configuration")
-        uploaded_file = st.file_uploader("Upload your dataset (CSV or Excel)", type=['csv', 'xlsx'], key='clustering_uploader')
-        
-        if uploaded_file is not None:
-            try:
-                if uploaded_file.name.endswith('.csv'):
-                    df = pd.read_csv(uploaded_file)
-                else:
-                    df = pd.read_excel(uploaded_file)
-                
-                st.success("Data loaded successfully!")
-                
-                # Show basic info
-                st.subheader("Data Preview")
-                st.dataframe(df.head())
-                
-                # Select features for clustering
-                numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
-                features = st.multiselect(
-                    "Select features for clustering",
-                    numeric_cols,
-                    default=numeric_cols[:min(3, len(numeric_cols))] if numeric_cols else []
-                )
-                
-                # Number of clusters
-                n_clusters = st.slider(
-                    "Number of clusters",
-                    min_value=2,
-                    max_value=10,
-                    value=3,
-                    help="Select the number of clusters to create"
-                )
-                
-                # Normalization option
-                normalize = st.checkbox(
-                    "Normalize features",
-                    value=True,
-                    help="Standardize features to have mean=0 and variance=1"
-                )
-                
-                if st.button("Perform Clustering"):
-                    if not features:
-                        st.error("Please select at least one feature for clustering.")
-                    else:
-                        # Prepare data
-                        X = df[features].dropna()
-                        
-                        # Normalize if requested
-                        if normalize:
-                            scaler = StandardScaler()
-                            X_scaled = scaler.fit_transform(X)
-                        else:
-                            X_scaled = X.values
-                        
-                        # Perform K-Means clustering
-                        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-                        clusters = kmeans.fit_predict(X_scaled)
-                        
-                        # Store results
-                        clustered_df = X.copy()
-                        clustered_df['Cluster'] = clusters
-                        
-                        # For visualization, reduce dimensions if needed
-                        if len(features) > 2:
-                            pca = PCA(n_components=2)
-                            vis_data = pca.fit_transform(X_scaled)
-                            vis_df = pd.DataFrame(vis_data, columns=['PC1', 'PC2'])
-                            vis_df['Cluster'] = clusters
-                            x_col, y_col = 'PC1', 'PC2'
-                        else:
-                            vis_df = clustered_df.copy()
-                            x_col, y_col = features[0], features[1] if len(features) > 1 else features[0]
-                        
-                        # Store in session state
-                        st.session_state.clustered_df = clustered_df
-                        st.session_state.vis_df = vis_df
-                        st.session_state.x_col = x_col
-                        st.session_state.y_col = y_col
-                        st.session_state.n_clusters = n_clusters
-                        st.session_state.features = features
-                        st.session_state.clustering_done = True
-                        
-                        st.success("Clustering completed successfully!")
-            
-            except Exception as e:
-                st.error(f"Error processing file: {e}")
-    
-    # Main content area
-    if st.session_state.get('clustering_done', False):
-        st.header("📊 Clustering Results")
-        
-        # Show cluster sizes
-        cluster_sizes = st.session_state.clustered_df['Cluster'].value_counts().sort_index()
-        st.write("**Cluster Sizes:**")
-        st.dataframe(cluster_sizes)
-        
-        # Visualization
-        st.subheader("Cluster Visualization")
-        
-        # Create interactive plot
-        fig = px.scatter(
-            st.session_state.vis_df,
-            x=st.session_state.x_col,
-            y=st.session_state.y_col,
-            color='Cluster',
-            color_continuous_scale=px.colors.qualitative.Plotly,
-            title=f"K-Means Clustering (k={st.session_state.n_clusters})"
-        )
-        
-        # Update layout
-        fig.update_layout(
-            height=600,
-            xaxis_title=st.session_state.x_col,
-            yaxis_title=st.session_state.y_col,
-            legend_title="Cluster"
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Cluster statistics
-        st.subheader("Cluster Statistics")
-        cluster_stats = st.session_state.clustered_df.groupby('Cluster')[st.session_state.features].mean()
-        st.dataframe(cluster_stats.style.background_gradient(cmap='Blues'))
-        
-        # Download clustered data
-        st.subheader("Download Results")
-        csv = st.session_state.clustered_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Download clustered data as CSV",
-            data=csv,
-            file_name='clustered_data.csv',
-            mime='text/csv'
-        )
-    
-    else:
-        st.info("Please upload a dataset and configure clustering parameters in the sidebar.")
-
-
-
-
-elif app_mode == "Neural Networks":
-    st.header("🧠 Neural Network Trainer (with PyTorch)")
-
-    st.markdown("Upload a classification dataset to build and train a simple Feedforward Neural Network.")
-
-    uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
+if app_mode == "Regression":
+    st.header("Regression Task")
+    uploaded_file = st.file_uploader("Upload CSV dataset", type="csv")
 
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
-        st.write("Dataset Preview:", df.head())
+        st.write("Preview of dataset:", df.head())
+        
+        # Store the original version of the dataset (before encoding and standardization)
+        original_df = df.copy()
 
-        target_column = st.selectbox("Select the target column", df.columns)
+        # Handle Missing Values Column-wise
+        st.subheader("Handle Missing Values Column-wise")
+        for col in df.columns:
+            if df[col].isnull().sum() > 0:
+                strategy = st.selectbox(f"Handle nulls in '{col}'", 
+                                        ["None", "Drop rows", "Mean", "Median", "Mode"], key=col)
+                if strategy == "Drop rows":
+                    df = df.dropna(subset=[col])
+                elif strategy == "Mean":
+                    df[col].fillna(df[col].mean(), inplace=True)
+                elif strategy == "Median":
+                    df[col].fillna(df[col].median(), inplace=True)
+                elif strategy == "Mode":
+                    df[col].fillna(df[col].mode()[0], inplace=True)
 
-        # Hyperparameter options
-        epochs = st.slider("Epochs", 5, 100, 20)
-        learning_rate = st.number_input("Learning Rate", value=0.001)
-        batch_size = st.slider("Batch Size", 8, 128, 32)
+        st.write("Handled Missing Data Dataset Preview:", df.head())
 
-        if st.button("Train Model"):
-            from sklearn.model_selection import train_test_split
-            from sklearn.preprocessing import StandardScaler, LabelEncoder
-            from torch.utils.data import DataLoader, TensorDataset
-            import torch
-            import torch.nn as nn
-            import torch.optim as optim
-            import matplotlib.pyplot as plt
+        # Preprocessing categorical columns (string to numeric)
+        st.subheader("Preprocess Categorical Data")
+        label_encoders = {}
+        for col in df.select_dtypes(include=['object']).columns:
+            le = LabelEncoder()
+            df[col] = le.fit_transform(df[col])
+            label_encoders[col] = le  # Save encoder for inverse transformation if needed
 
-            # Preprocess
-            X = df.drop(columns=[target_column])
-            y = df[target_column]
+        st.write("Processed Dataset Preview:", df.head())
 
-            for col in X.select_dtypes(include='object').columns:
-                X[col] = LabelEncoder().fit_transform(X[col])
+        target = st.text_input("Enter target column name")
 
-            if y.dtype == 'object':
-                y = LabelEncoder().fit_transform(y)
+        if target and target in df.columns:
+            X = df.drop(columns=[target])
+            y = df[target]
 
-            X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2)
+            if st.checkbox("Standardize data"):
+                scaler = StandardScaler()
+                X = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
 
-            scaler = StandardScaler()
-            X_train = scaler.fit_transform(X_train)
-            X_val = scaler.transform(X_val)
+            test_size = st.slider("Test size (for evaluation)", 0.0, 0.1, 0.5, 0.2)
+            if test_size==0.0:
+                test_size= None
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
 
-            X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
-            y_train_tensor = torch.tensor(y_train, dtype=torch.long)
-            X_val_tensor = torch.tensor(X_val, dtype=torch.float32)
-            y_val_tensor = torch.tensor(y_val, dtype=torch.long)
+            model = LinearRegression()
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
 
-            train_loader = DataLoader(TensorDataset(X_train_tensor, y_train_tensor), batch_size=batch_size, shuffle=True)
-            val_loader = DataLoader(TensorDataset(X_val_tensor, y_val_tensor), batch_size=batch_size)
+            st.write("MAE:", mean_absolute_error(y_test, y_pred))
+            st.write("R² Score:", r2_score(y_test, y_pred))
 
-            input_dim = X_train.shape[1]
-            num_classes = len(set(y))
-
-            class FeedforwardNN(nn.Module):
-                def __init__(self):
-                    super().__init__()
-                    self.fc1 = nn.Linear(input_dim, 64)
-                    self.fc2 = nn.Linear(64, 32)
-                    self.fc3 = nn.Linear(32, num_classes)
-
-                def forward(self, x):
-                    x = torch.relu(self.fc1(x))
-                    x = torch.relu(self.fc2(x))
-                    return self.fc3(x)
-
-            model = FeedforwardNN()
-            criterion = nn.CrossEntropyLoss()
-            optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
-            train_losses, val_losses = [], []
-            train_accuracies, val_accuracies = [], []
-
-            progress = st.progress(0)
-
-            for epoch in range(epochs):
-                model.train()
-                correct, total, train_loss = 0, 0, 0
-                for inputs, labels in train_loader:
-                    optimizer.zero_grad()
-                    outputs = model(inputs)
-                    loss = criterion(outputs, labels)
-                    loss.backward()
-                    optimizer.step()
-
-                    train_loss += loss.item()
-                    _, preds = torch.max(outputs, 1)
-                    correct += (preds == labels).sum().item()
-                    total += labels.size(0)
-
-                train_accuracy = correct / total
-                train_losses.append(train_loss)
-                train_accuracies.append(train_accuracy)
-
-                # Validation
-                model.eval()
-                correct, total, val_loss = 0, 0, 0
-                with torch.no_grad():
-                    for inputs, labels in val_loader:
-                        outputs = model(inputs)
-                        loss = criterion(outputs, labels)
-                        val_loss += loss.item()
-                        _, preds = torch.max(outputs, 1)
-                        correct += (preds == labels).sum().item()
-                        total += labels.size(0)
-                val_accuracy = correct / total
-                val_losses.append(val_loss)
-                val_accuracies.append(val_accuracy)
-
-                progress.progress((epoch + 1) / epochs)
-                st.write(f"Epoch {epoch+1}/{epochs}: Train Acc={train_accuracy:.4f}, Val Acc={val_accuracy:.4f}")
-
-            # Plot
-            st.subheader("📊 Training Progress")
-            fig, axs = plt.subplots(1, 2, figsize=(12, 4))
-
-            axs[0].plot(train_losses, label="Train Loss")
-            axs[0].plot(val_losses, label="Val Loss")
-            axs[0].legend()
-            axs[0].set_title("Loss over Epochs")
-
-            axs[1].plot(train_accuracies, label="Train Accuracy")
-            axs[1].plot(val_accuracies, label="Val Accuracy")
-            axs[1].legend()
-            axs[1].set_title("Accuracy over Epochs")
-
+            # Scatter plot for actual vs predicted
+            fig, ax = plt.subplots()
+            ax.scatter(y_test, y_pred)
+            ax.set_xlabel("Actual")
+            ax.set_ylabel("Predicted")
+            ax.set_title("Actual vs Predicted")
             st.pyplot(fig)
 
-            # Save model + scaler
-            torch.save(model.state_dict(), "model.pth")
-            st.session_state['model'] = model
-            st.session_state['scaler'] = scaler
-            st.session_state['input_dim'] = input_dim
+            # Feature vs Actual plot with regression line
+            feature = st.selectbox("Choose a feature to plot against", X.columns)
+            fig, ax = plt.subplots()
+            ax.scatter(X_test[feature], y_test, color="blue", label="Data Points")
+            ax.plot(X_test[feature], model.predict(X_test), color="red", linestyle="--", label="Regression Line")
+            ax.set_xlabel(feature)
+            ax.set_ylabel("Actual Values")
+            ax.set_title(f"Regression Line for {feature} vs Actual")
+            ax.legend()
+            st.pyplot(fig)
 
-    # Prediction
-    st.subheader("🧪 Make Predictions")
-    if "model" in st.session_state:
-        test_file = st.file_uploader("Upload test CSV for prediction", type=["csv"], key="predict")
+            # Custom Prediction Input (excluding target column)
+            st.subheader("Custom Prediction")
+            input_data = {}
+            for col in original_df.columns:
+                if col != target:  # Exclude the target column
+                    # If the column is categorical, use a selectbox for original string values
+                    if original_df[col].dtype == 'object':
+                        input_data[col] = st.selectbox(f"{col}", options=original_df[col].unique())
+                    else:
+                        input_data[col] = st.number_input(f"{col}")
 
-        if test_file:
-            test_df = pd.read_csv(test_file)
-            st.write("Test Data Preview:", test_df.head())
+            if st.button("Predict"):
+                # Convert the input data into a DataFrame
+                input_df = pd.DataFrame([input_data])
 
-            for col in test_df.select_dtypes(include='object').columns:
-                test_df[col] = LabelEncoder().fit_transform(test_df[col])
+                # Apply label encoding for categorical columns
+                for col in input_df.select_dtypes(include=['object']).columns:
+                    if col in label_encoders:
+                        input_df[col] = label_encoders[col].transform(input_df[col])
 
-            test_df = st.session_state['scaler'].transform(test_df)
-            test_tensor = torch.tensor(test_df, dtype=torch.float32)
+                # Apply standardization if needed
+                if 'scaler' in locals():
+                    input_df = pd.DataFrame(scaler.transform(input_df), columns=input_df.columns)
 
-            model.eval()
-            with torch.no_grad():
-                outputs = model(test_tensor)
-                _, preds = torch.max(outputs, 1)
-                st.write("Predictions:", preds.numpy())
-
+                st.write("Prediction:", model.predict(input_df)[0])
 
 
+elif app_mode == "Clustering":
+    st.header("Clustering Task")
+    uploaded_file = st.file_uploader("Upload CSV dataset for clustering", type="csv")
+
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+        st.write("### 📋 Dataset Preview", df.head())
+
+        # Handle missing values column-wise
+        st.subheader("Handle Missing Values Column-wise")
+        for col in df.columns:
+            if df[col].isnull().sum() > 0:
+                strategy = st.selectbox(f"Handle nulls in '{col}'",
+                                        ["None", "Drop rows", "Mean", "Median", "Mode"], key=col)
+                if strategy == "Drop rows":
+                    df = df.dropna(subset=[col])
+                elif strategy == "Mean":
+                    df[col].fillna(df[col].mean(), inplace=True)
+                elif strategy == "Median":
+                    df[col].fillna(df[col].median(), inplace=True)
+                elif strategy == "Mode":
+                    df[col].fillna(df[col].mode()[0], inplace=True)
+        st.write("Handled Missing Data Dataset Preview:", df.head())
+
+         # Preprocessing categorical columns (string to numeric)
+        st.subheader("Preprocess Categorical Data")
+        label_encoders = {}
+        for col in df.select_dtypes(include=['object']).columns:
+            le = LabelEncoder()
+            df[col] = le.fit_transform(df[col])
+            label_encoders[col] = le  # Save encoder for inverse transformation if needed
+
+        st.write("Processed Dataset Preview:", df.head())   
+
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+
+        if len(numeric_cols) < 2:
+            st.warning("Dataset must contain at least two numeric features for clustering.")
+        else:
+            st.subheader("Clustering Options")
+            features = st.multiselect("Select features to cluster on", numeric_cols, default=numeric_cols[:2])
+
+            if len(features) >= 2:
+                X = df[features]
+
+                # Normalize
+                scaler = StandardScaler()
+                X_scaled = scaler.fit_transform(X)
+
+                # Elbow method to auto-suggest K
+                st.subheader("Select Number of Clusters (K)")
+                if st.button("🔍 Use Elbow Method to Suggest K"):
+                    distortions = []
+                    K_range = range(1, 11)
+                    for k in K_range:
+                        km = KMeans(n_clusters=k, random_state=42)
+                        km.fit(X_scaled)
+                        distortions.append(km.inertia_)
+
+                    # Plot elbow
+                    fig_elbow, ax_elbow = plt.subplots()
+                    ax_elbow.plot(K_range, distortions, 'bo-')
+                    ax_elbow.set_xlabel('Number of clusters (k)')
+                    ax_elbow.set_ylabel('Inertia (Distortion)')
+                    ax_elbow.set_title('Elbow Method For Optimal k')
+                    st.pyplot(fig_elbow)
+
+                    # Estimate optimal k using 2nd derivative
+                    deltas = np.diff(distortions, 2)
+                    if len(deltas) > 0:
+                        suggested_k = np.argmin(deltas) + 2
+                        st.success(f"Optimal K suggested by Elbow Method: **{suggested_k}**")
+                    else:
+                        suggested_k = 3
+                        st.warning("Unable to determine elbow point automatically. Defaulting to k=3.")
+                else:
+                    suggested_k = 3
+
+                n_clusters = st.slider("Select number of clusters", 2, 10, suggested_k)
+
+                # Perform KMeans clustering
+                kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+                cluster_labels = kmeans.fit_predict(X_scaled)
+                df['Cluster'] = cluster_labels
+
+                st.write("### 📊 Clustered Dataset", df.head())
+
+                # 2D Visualization
+                if len(features) == 2:
+                    fig, ax = plt.subplots()
+                    sns.scatterplot(x=X[features[0]], y=X[features[1]], hue=cluster_labels, palette='Set2', ax=ax)
+                    centroids = scaler.inverse_transform(kmeans.cluster_centers_)
+                    ax.scatter(centroids[:, 0], centroids[:, 1], c='black', s=200, alpha=0.5, marker='X', label='Centroids')
+                    ax.set_title("2D Cluster Plot")
+                    ax.legend()
+                    st.pyplot(fig)
+
+                # 3D Visualization
+                elif len(features) >= 3:
+                    pca = PCA(n_components=3)
+                    X_pca = pca.fit_transform(X_scaled)
+                    fig = plt.figure()
+                    ax = fig.add_subplot(111, projection='3d')
+                    ax.scatter(X_pca[:, 0], X_pca[:, 1], X_pca[:, 2], c=cluster_labels, cmap='Set2')
+                    ax.set_title("3D Cluster Plot (PCA reduced)")
+                    st.pyplot(fig)
+
+                # Download clustered dataset
+                csv = df.to_csv(index=False).encode()
+                st.download_button("📥 Download Clustered Dataset", data=csv, file_name="clustered_data.csv", mime='text/csv')
+
+            else:
+                st.warning("Please select at least two features for clustering.")
+
+
+elif app_mode == "Neural Network":
+
+
+    st.header("Neural Network Task")
+    uploaded_file = st.file_uploader("Upload dataset for classification (CSV)", type="csv")
     
+    if uploaded_file:
+      
+
+
+
+        df = pd.read_csv(uploaded_file)
+        st.write("📊 Dataset Preview", df.head())
+
+        # 2. Target column selection
+        target_col = st.text_input("🎯 Enter target column name")
+        if target_col and target_col in df.columns:
+            X = df.drop(columns=[target_col])
+            y = df[target_col]
+
+            # Encode categorical target labels
+            label_encoder = LabelEncoder()
+            y_encoded = label_encoder.fit_transform(y)
+            num_classes = len(np.unique(y_encoded))
+
+            # Encode categorical features in X
+            categorical_encoders = {}
+            for col in X.columns:
+                if X[col].dtype == 'object' or X[col].dtype.name == 'category':
+                    le = LabelEncoder()
+                    X[col] = le.fit_transform(X[col])
+                    categorical_encoders[col] = le  # Save encoder for prediction
+
+            # Standardize features
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X)
+
+            # Train-validation split
+            X_train, X_val, y_train, y_val = train_test_split(X_scaled, y_encoded, test_size=0.2, random_state=42)
+
+            # Convert labels to categorical (one-hot)
+            y_train_cat = to_categorical(y_train, num_classes)
+            y_val_cat = to_categorical(y_val, num_classes)
+
+            # 3. Hyperparameter tuning
+            st.sidebar.header("⚙️ Hyperparameters")
+            learning_rate = st.sidebar.number_input("Learning Rate", value=0.001)
+            epochs = st.sidebar.slider("Epochs", min_value=5, max_value=100, value=20)
+            hidden_units = st.sidebar.slider("Hidden Units", min_value=16, max_value=256, value=64)
+
+            model = Sequential([
+                Dense(hidden_units, activation='relu', input_shape=(X_train.shape[1],)),
+                Dense(hidden_units, activation='relu'),
+                Dense(num_classes, activation='softmax')
+            ])
+            model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+            if st.button("🚀 Train Model"):
+                with st.spinner("Training..."):
+                    history = model.fit(
+                        X_train, y_train_cat,
+                        validation_data=(X_val, y_val_cat),
+                        epochs=epochs,
+                        verbose=0
+                    )
+                st.success("✅ Training completed!")
+                st.write("Classes:", label_encoder.classes_)
+
+
+                # Save everything to session state
+                st.session_state.model = model
+                st.session_state.scaler = scaler
+                st.session_state.label_encoder = label_encoder
+                st.session_state.categorical_encoders = categorical_encoders
+                st.session_state.columns = list(X.columns)
+
+                # Plot training history
+                fig, ax = plt.subplots(1, 2, figsize=(12, 4))
+                ax[0].plot(history.history['loss'], label='Train Loss')
+                ax[0].plot(history.history['val_loss'], label='Val Loss')
+                ax[0].set_title("Loss over Epochs")
+                ax[0].legend()
+
+                ax[1].plot(history.history['accuracy'], label='Train Accuracy')
+                ax[1].plot(history.history['val_accuracy'], label='Val Accuracy')
+                ax[1].set_title("Accuracy over Epochs")
+                ax[1].legend()
+
+                st.pyplot(fig)
+
+            if 'model' in st.session_state:
+                st.subheader("🔍 Make Prediction on New Input")
+
+                input_data = {}
+                for col in st.session_state.columns:
+                    val = st.text_input(f"Enter value for '{col}'")
+                    input_data[col] = val
+
+                if st.button("📈 Predict"):
+                    input_df = pd.DataFrame([input_data])
+
+                    # Encode input using saved encoders
+                    for col in input_df.columns:
+                        if col in st.session_state.categorical_encoders:
+                            le = st.session_state.categorical_encoders[col]
+                            try:
+                                input_df[col] = le.transform([input_df[col][0]])
+                            except ValueError:
+                                st.error(f"⚠️ Value '{input_df[col][0]}' not seen during training in column '{col}'")
+                                st.stop()
+                        else:
+                            input_df[col] = pd.to_numeric(input_df[col], errors='coerce')
+
+                    if input_df.isnull().any().any():
+                        st.error("⚠️ Invalid input detected. Please check your entries.")
+                    else:
+                        input_scaled = st.session_state.scaler.transform(input_df)
+                        prediction = st.session_state.model.predict(input_scaled)
+                        predicted_class = st.session_state.label_encoder.inverse_transform([np.argmax(prediction)])
+                        st.success(f"🧠 Predicted Class: **{predicted_class[0]}**")
+
+
+
 elif app_mode == "Large Language Model (LLM)":
     load_dotenv()
     QDRANT_CLOUD_URL = os.getenv("QDRANT_CLOUD_URL")
@@ -589,7 +398,7 @@ elif app_mode == "Large Language Model (LLM)":
                 text += page.extract_text() + "\n"
         return text
 
-    def split_text(text, chunk_size=500, chunk_overlap=50):
+    def split_text(text, chunk_size=700, chunk_overlap=100):
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap
@@ -601,7 +410,7 @@ elif app_mode == "Large Language Model (LLM)":
         search_results = qdrant.search(
         collection_name="handbook",
         query_vector=query_embedding.tolist(),
-        limit=5
+        limit=10
     )
         return [hit.payload["text"] for hit in search_results]
 
@@ -616,14 +425,14 @@ elif app_mode == "Large Language Model (LLM)":
         f"{query}\n\n"
         "### Instructions:\n"
         "- Identify the key points that directly answer the user's question.\n"
-        "- Provide a *clear and structured summary* in *2-3 sentences*.\n"
+        "- Provide a **clear and structured summary** in **2-3 sentences**.\n"
         "- Avoid unnecessary details or repeating the text verbatim.\n"
         "- If the excerpts do not contain enough information, state: 'The document does not provide a clear answer to this question.'\n\n"
         "### Answer:"
     )
 
         response = requests.post(
-        "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1",
+        "https://api-inference.huggingface.co/models/google/flan-t5-large",
         headers={"Authorization": f"Bearer {HF_API_KEY}"},
         json={
             "inputs": prompt,
@@ -674,5 +483,3 @@ elif app_mode == "Large Language Model (LLM)":
         relevant_chunks = retrieve_relevant_chunks(query)
         rag_answer = generate_answer(query, "\n".join(relevant_chunks))
         st.write("Answer:", rag_answer)
-
-
